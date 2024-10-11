@@ -2,42 +2,39 @@ import 'package:flutter/material.dart';
 import 'package:todoist/models/home_model.dart';
 import 'package:todoist/screens/home_screen.dart';
 import 'package:todoist/services/api_services.dart';
+import 'package:todoist/services/api_url.dart';
 import 'package:todoist/utils/colors.dart';
 
-class AddTask extends StatefulWidget {
-  bool? isEdit;
-  String? content;
-  String? description;
-  int? priority;
-  String? id;
-  AddTask(
-      {super.key,
-      this.content,
-      this.description,
-      this.priority,
-      this.isEdit,
-      this.id});
+class AddTaskClass extends StatefulWidget {
+  final bool? isEdit;
+  final HomeModel? data;
+
+  const AddTaskClass({super.key, this.isEdit, this.data});
 
   @override
-  State<AddTask> createState() => _AddTaskState();
+  State<AddTaskClass> createState() => _AddTaskClassState();
 }
 
-var apiUrl = "https://api.todoist.com/rest/v2/tasks";
-var apiKey = "ee30b5759efde41eebf0b6126018b043bd016215";
-ApiService api = ApiService();
-TextEditingController inputController = TextEditingController();
-TextEditingController descriptionController = TextEditingController();
-int? selectedValue = 1;
+class _AddTaskClassState extends State<AddTaskClass> {
+  ApiService api = ApiService();
+  bool isLoading = false;
+  final Map<int, String> priorityMap = {
+    0: 'Select Priority',
+    1: 'High',
+    2: 'Medium',
+    3: 'Normal',
+    4: 'Low'
+  };
+  int? selectedValue = 0;
+  TextEditingController titleController = TextEditingController();
+  TextEditingController descriptionController = TextEditingController();
 
-class _AddTaskState extends State<AddTask> {
   @override
   void initState() {
-    if (widget.isEdit!) {
-      inputController.text = "${widget.content}";
-      descriptionController.text = "${widget.description}";
-      selectedValue = widget.priority;
-    } else {
-      widget.isEdit = false;
+    if (widget.isEdit ?? false) {
+      titleController.text = widget.data?.content ?? "No Title";
+      descriptionController.text = widget.data?.description ?? "No Description";
+      selectedValue = widget.data?.priority;
     }
     super.initState();
   }
@@ -45,77 +42,130 @@ class _AddTaskState extends State<AddTask> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-        appBar: AppBar(
-          backgroundColor: Mycolors.primaryColor,
+      appBar: AppBar(
+        leading: IconButton(
+          onPressed: () {
+            Navigator.pop(context);
+          },
+          icon: const Icon(Icons.arrow_back_ios),
+          color: Colors.white,
         ),
-        body: Column(
-          children: [
-            TextField(
-              decoration: const InputDecoration(hintText: "Enter Title"),
-              controller: inputController,
-            ),
-            TextField(
-              decoration: const InputDecoration(hintText: "Enter Description"),
-              controller: descriptionController,
-            ),
-            DropdownButton(
-              value: selectedValue,
-              onChanged: (val) {
-                setState(() {
-                  selectedValue = val;
-                });
-              },
-              items: [1, 2, 3, 4].map<DropdownMenuItem<int>>((int value) {
-                return DropdownMenuItem<int>(
-                  value: value,
-                  child: Text(value.toString()),
-                );
-              }).toList(),
-            ),
-            ElevatedButton(
-                onPressed: () async {
-                  if (widget.isEdit!) {
-                    HomeModel data = HomeModel(
-                        content: inputController.text,
-                        description: descriptionController.text,
-                        priority: selectedValue);
-                    await api.updateTask(
-                        apiUrl: apiUrl,
-                        apiKey: apiKey,
-                        body: data.toJson(),
-                        id: widget.id);
-                    widget.isEdit = false;
-                  } else {
-                    if (inputController.text.isNotEmpty) {
+        backgroundColor: Mycolors.primaryColor,
+        centerTitle: true,
+        title: Text(
+          widget.isEdit! ? "Edit Task" : "Add Task",
+          style: const TextStyle(color: Colors.white),
+        ),
+      ),
+      body: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 30),
+        child: SingleChildScrollView(
+          child: Column(
+            children: [
+              TextField(
+                controller: titleController,
+                decoration: const InputDecoration(
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.all(
+                        Radius.circular(15),
+                      ),
+                    ),
+                    hintText: "Enter Task Title"),
+              ),
+              const SizedBox(height: 20),
+              TextField(
+                controller: descriptionController,
+                decoration: const InputDecoration(
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.all(
+                        Radius.circular(15),
+                      ),
+                    ),
+                    hintText: "Enter Task Description"),
+                minLines: 6,
+                maxLines: null,
+              ),
+              const SizedBox(height: 20),
+              DropdownButtonFormField(
+                  value: selectedValue,
+                  decoration: const InputDecoration(
+                      hintText: "Select Priority",
+                      border: OutlineInputBorder(
+                          borderRadius: BorderRadius.all(Radius.circular(15)))),
+                  items: priorityMap.entries
+                      .map((e) => DropdownMenuItem(
+                            value: e.key,
+                            child: Text(e.value),
+                          ))
+                      .toList(),
+                  onChanged: (val) {
+                    setState(() {
+                      selectedValue = val;
+                    });
+                  }),
+              const SizedBox(height: 20),
+              ElevatedButton(
+                  onPressed: () async {
+                    if (titleController.text.isEmpty ||
+                        descriptionController.text.isEmpty ||
+                        selectedValue == 0) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          backgroundColor: Mycolors.primaryColor,
+                          content: const Text(
+                            "Please Fill the fields",
+                            style: TextStyle(color: Colors.white),
+                          ),
+                        ),
+                      );
+                    } else {
+                      setState(() {
+                        isLoading = true;
+                      });
                       HomeModel data = HomeModel(
-                          content: inputController.text,
+                          content: titleController.text,
                           description: descriptionController.text,
-                          priority: selectedValue);
-                      await api.postTask(apiUrl, apiKey, data.toJson());
-                      Navigator.pushReplacement(
-                          context,
-                          MaterialPageRoute(
-                              builder: (BuildContext context) =>
-                                  const HomeClass()));
+                          priority: selectedValue,
+                          isCompleted: false);
+                      if (widget.isEdit!) {
+                        await api.updateTask(
+                            apiUrl: ApiUrl.apiUrl,
+                            apiKey: ApiUrl.apiKey,
+                            body: data.toJson(),
+                            id: widget.data!.id);
+                        Navigator.pushReplacement(
+                            context,
+                            MaterialPageRoute(
+                                builder: (BuildContext context) =>
+                                    const HomeClass()));
+                        isLoading = false;
+                      } else {
+                        await api.postTask(
+                            ApiUrl.apiUrl, ApiUrl.apiKey, data.toJson());
+                        Navigator.pushReplacement(
+                            context,
+                            MaterialPageRoute(
+                                builder: (BuildContext context) =>
+                                    const HomeClass()));
+                        isLoading = false;
+                      }
                     }
-                  }
-                },
-                child: Text(widget.isEdit! ? "Edit Task" : "Add Task"))
-          ],
-        ));
+                  },
+                  style: ElevatedButton.styleFrom(
+                      minimumSize: const Size(350, 50),
+                      backgroundColor: Mycolors.primaryColor,
+                      foregroundColor: Colors.white),
+                  child: isLoading
+                      ? const CircularProgressIndicator(
+                          color: Colors.white,
+                        )
+                      : Text(
+                          widget.isEdit! ? "Update Task" : "Add Task",
+                        ))
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-

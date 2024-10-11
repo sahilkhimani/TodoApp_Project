@@ -1,9 +1,8 @@
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/widgets.dart';
 import 'package:todoist/models/home_model.dart';
 import 'package:todoist/screens/add_task.dart';
 import 'package:todoist/services/api_services.dart';
+import 'package:todoist/services/api_url.dart';
 import 'package:todoist/utils/colors.dart';
 
 class HomeClass extends StatefulWidget {
@@ -72,19 +71,23 @@ class _HomeClassState extends State<HomeClass> {
                   Row(
                     children: [
                       IconButton.filled(
+                          style: IconButton.styleFrom(
+                              backgroundColor: Mycolors.primaryColor),
                           onPressed: () {
-                            setState(() {
-                              filterSelected = true;
-                              sortByPriority = 1;
-                            });
+                            // setState(() {
+                            //   filterSelected = true;
+                            //   sortByPriority = 1;
+                            // });
                           },
                           icon: const Icon(Icons.arrow_upward)),
                       IconButton.filled(
+                          style: IconButton.styleFrom(
+                              backgroundColor: Mycolors.primaryColor),
                           onPressed: () {
-                            setState(() {
-                              filterSelected = true;
-                              sortByPriority = 4;
-                            });
+                            // setState(() {
+                            //   filterSelected = true;
+                            //   sortByPriority = 4;
+                            // });
                           },
                           icon: const Icon(Icons.arrow_downward))
                     ],
@@ -99,9 +102,10 @@ class _HomeClassState extends State<HomeClass> {
               const SizedBox(height: 15),
               FutureBuilder(
                   future: prioritySelected
-                      ? api.getAllTasks(
-                          apiUrl, apiKey, selectedValue, prioritySelected)
-                      : api.getAllTasks(apiUrl, apiKey, 0, prioritySelected),
+                      ? api.getAllTasks(ApiUrl.apiUrl, ApiUrl.apiKey,
+                          selectedValue, prioritySelected)
+                      : api.getAllTasks(
+                          ApiUrl.apiUrl, ApiUrl.apiKey, 0, prioritySelected),
                   builder: (BuildContext context,
                       AsyncSnapshot<List<HomeModel>> snapshot) {
                     if (snapshot.connectionState == ConnectionState.waiting) {
@@ -142,16 +146,38 @@ class _HomeClassState extends State<HomeClass> {
                                                 (BuildContext context) =>
                                                     <PopupMenuEntry<int>>[
                                               const PopupMenuItem(
-                                                  value: 0,
-                                                  child: Text("Complete")),
-                                              const PopupMenuItem(
                                                   value: 1,
                                                   child: Text("Edit")),
                                               const PopupMenuItem(
                                                   value: 2,
                                                   child: Text("Delete"))
                                             ],
-                                            onSelected: (int value) {},
+                                            onSelected: (int value) async {
+                                              if (value == 1) {
+                                                Navigator.push(
+                                                  context,
+                                                  MaterialPageRoute(
+                                                    builder: (BuildContext
+                                                            context) =>
+                                                        AddTaskClass(
+                                                      isEdit: true,
+                                                      data:
+                                                          snapshot.data![index],
+                                                    ),
+                                                  ),
+                                                );
+                                              } else if (value == 2) {
+                                                const Center(
+                                                    child:
+                                                        CircularProgressIndicator());
+                                                await api.deleteTask(
+                                                    apiUrl: ApiUrl.apiUrl,
+                                                    apiKey: ApiUrl.apiKey,
+                                                    id: snapshot
+                                                        .data?[index].id);
+                                                setState(() {});
+                                              }
+                                            },
                                           )
                                         ],
                                       ),
@@ -189,6 +215,7 @@ class _HomeClassState extends State<HomeClass> {
                                               color: Colors.white),
                                         ),
                                       ),
+                                      const SizedBox(height: 10),
                                       Text(
                                         maxLines: 4,
                                         snapshot.data?[index].description ??
@@ -222,11 +249,20 @@ class _HomeClassState extends State<HomeClass> {
         ),
       ),
       floatingActionButton: FloatingActionButton(
+        backgroundColor: Mycolors.primaryColor,
+        shape: const CircleBorder(),
         onPressed: () {
-          Navigator.push(context,
-              MaterialPageRoute(builder: (BuildContext context) => AddTask()));
+          Navigator.push(
+              context,
+              MaterialPageRoute(
+                  builder: (BuildContext context) => const AddTaskClass(
+                        isEdit: false,
+                      )));
         },
-        child: const Icon(Icons.add),
+        child: const Icon(
+          Icons.add,
+          color: Colors.white,
+        ),
       ),
     );
   }
